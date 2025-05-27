@@ -17,3 +17,5 @@ services:
         value: mcp_servers.config.json
       - key: MCP_SERVER_NAME
         value: github
+      - key: GITHUB_PERSONAL_ACCESS_TOKEN
+        sync: false
