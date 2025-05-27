@@ -16,4 +16,4 @@ services:
       - key: MCP_CONFIG_FILE
         value: mcp_servers.config.json
       - key: MCP_SERVER_NAME
-        value: brave-search
+        value: github
