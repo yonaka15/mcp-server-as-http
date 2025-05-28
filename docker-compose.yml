@@ -10,13 +10,17 @@ services:
       - HTTP_API_KEY=${HTTP_API_KEY:-your-secret-api-key-here}
       - DISABLE_AUTH=${DISABLE_AUTH:-false}
       - MCP_CONFIG_FILE=mcp_servers.config.json
-      - MCP_SERVER_NAME=${MCP_SERVER_NAME:-brave-search}
+      - MCP_SERVER_NAME=${MCP_SERVER_NAME:-github}
       - RUST_LOG=${RUST_LOG:-info}
+      - GITHUB_PERSONAL_ACCESS_TOKEN=${GITHUB_PERSONAL_ACCESS_TOKEN}
     volumes:
       # Mount config file for easy development changes
       - ./mcp_servers.config.json:/app/mcp_servers.config.json:ro
       # Optional: mount custom .env file
       - ./.env:/app/.env:ro
+      # Mount Docker socket for Docker-in-Docker
+      - /var/run/docker.sock:/var/run/docker.sock:rw
+    user: root  # Temporarily run as root to access docker socket
     restart: unless-stopped
     healthcheck:
       test:
@@ -41,12 +45,12 @@ services:
   health-check:
     image: curlimages/curl:latest
     depends_on:
-      - mcp-http-server
+      - mcp-server-as-http
     command: >
       sh -c "
-        echo 'Waiting for mcp-http-server to be ready...' &&
+        echo 'Waiting for mcp-server-as-http to be ready...' &&
         sleep 10 &&
-        curl -f http://mcp-http-server:3000/api/v1 
+        curl -f http://mcp-server-as-http:3000/api/v1 
           -X POST 
           -H 'Content-Type: application/json' 
           -d '{\"command\":\"test\"}' &&

@@ -1,13 +1,13 @@
-# MCP HTTP Server
+# GitHub MCP HTTP Server
 
-A HTTP server that provides a REST API interface to Model Context Protocol (MCP) servers.
+A HTTP server that provides a REST API interface to GitHub's Model Context Protocol (MCP) server, enabling HTTP-based access to GitHub APIs.
 
 ## Features
 
-- **REST API Interface**: Convert MCP protocol to HTTP REST API
-- **Authentication**: Bearer token authentication support
-- **Configuration**: JSON-based MCP server configuration
-- **Docker Support**: Full Docker containerization with multi-stage builds
+- **GitHub API Access**: Full access to GitHub APIs via HTTP REST interface
+- **REST API Interface**: Convert GitHub MCP protocol to HTTP REST API
+- **Authentication**: Bearer token authentication support + GitHub Personal Access Token
+- **Docker Support**: Single container deployment with GitHub MCP Server
 - **Health Checks**: Built-in health checking capabilities
 - **Logging**: Comprehensive debug logging
 
@@ -66,18 +66,33 @@ DISABLE_AUTH=false
 
 # MCP Server Configuration
 MCP_CONFIG_FILE=mcp_servers.config.json
-MCP_SERVER_KEY=brave-search
+MCP_SERVER_NAME=github
+
+# GitHub Personal Access Token
+GITHUB_PERSONAL_ACCESS_TOKEN=your-github-token-here
+```
+
+### GitHub Personal Access Token
+
+You need a GitHub Personal Access Token to use the GitHub MCP Server:
+
+1. Go to [GitHub Settings > Personal Access Tokens](https://github.com/settings/personal-access-tokens/new)
+2. Create a new token with the required permissions
+3. Set the token in your `.env` file:
+
+```bash
+GITHUB_PERSONAL_ACCESS_TOKEN=your-github-token-here
 ```
 
 ### MCP Server Configuration
 
-Edit `mcp_servers.config.json` to configure MCP servers:
+The `mcp_servers.config.json` is pre-configured for GitHub using Docker:
 
 ```json
 {
-  "brave-search": {
-    "command": "npx",
-    "args": ["-y", "@modelcontextprotocol/server-brave-search"]
+  "github": {
+    "command": "docker",
+    "args": ["run", "-i", "--rm", "--network", "host", "-e", "GITHUB_PERSONAL_ACCESS_TOKEN", "ghcr.io/github/github-mcp-server"]
   }
 }
 ```
@@ -150,9 +165,9 @@ cargo build --release
 
 ### Dependencies
 
-- **Runtime**: Node.js (for npx and MCP servers)
+- **Runtime**: Docker (for GitHub MCP Server container)
 - **Build**: Rust toolchain
-- **MCP Servers**: Various npm packages (installed dynamically)
+- **GitHub Integration**: Official GitHub MCP Server Docker image
 
 ## Monitoring
 
@@ -183,10 +198,11 @@ docker-compose logs -f
 
 ### Common Issues
 
-1. **Node.js/npx not found**: Ensure Node.js is installed in the container
-2. **MCP server startup failure**: Check network connectivity for npm package downloads
-3. **Permission denied**: Verify file permissions and user configuration
+1. **Docker permission denied**: Ensure Docker socket is accessible (mounted in compose)
+2. **GitHub authentication failure**: Check your `GITHUB_PERSONAL_ACCESS_TOKEN` is valid
+3. **Permission denied**: Verify GitHub token has required permissions
 4. **Port conflicts**: Change the port mapping in Docker commands
+5. **GitHub MCP Server pull failed**: Ensure Docker can access ghcr.io
 
 ### Debug Mode
 

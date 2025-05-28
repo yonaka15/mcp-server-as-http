@@ -1,14 +1,12 @@
 # Multi-stage build for mcp-http-server
-# Stage 1: Build stage with Rust and Node.js
+# Stage 1: Build stage with Rust only
 FROM rust:1.85-slim-bookworm as builder
 
-# Install Node.js and build dependencies
+# Install build dependencies
 RUN apt-get update && apt-get install -y \
   pkg-config \
   libssl-dev \
   curl \
-  && curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \
-  && apt-get install -y nodejs \
   && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
@@ -29,17 +27,19 @@ COPY src ./src
 # Build the application
 RUN cargo build --release
 
-# Stage 2: Runtime stage
-FROM node:18-slim
+# Stage 2: Runtime stage with Docker support
+FROM debian:bookworm-slim
 
-# Install only runtime dependencies
+# Install runtime dependencies including Docker
 RUN apt-get update && apt-get install -y \
   ca-certificates \
   curl \
+  docker.io \
   && rm -rf /var/lib/apt/lists/*
 
-# Create non-root user for security
-RUN groupadd -r mcpuser && useradd -r -g mcpuser mcpuser
+# Create non-root user for security and add to docker group
+RUN groupadd -r mcpuser && useradd -r -g mcpuser mcpuser && \
+  usermod -aG docker mcpuser
 
 # Set working directory
 WORKDIR /app
@@ -47,34 +47,25 @@ WORKDIR /app
 # Copy the binary from builder stage
 COPY --from=builder /app/target/release/mcp-http-server .
 
-# Copy configuration files
+# Copy configuration files and proxy script
 COPY mcp_servers.config.json .
 COPY .env.example .env
+COPY github-mcp-proxy.sh .
 
-# npm/npxが使用するキャッシュディレクトリと設定ディレクトリを/app配下に作成
-# これらのディレクトリの所有権をmcpuserに変更
-RUN mkdir -p /app/.npm-cache /app/.npm-config && \
-  chown -R mcpuser:mcpuser /app/.npm-cache /app/.npm-config
+# Make scripts executable
+RUN chmod +x /app/mcp-http-server /app/github-mcp-proxy.sh && \
+  chown -R root:root /app
 
-# アプリケーションの他のファイルもmcpuser所有にする
-# (この行は既に存在しますが、新しいディレクトリ作成後に効果があるように配置を確認)
-RUN chown -R mcpuser:mcpuser /app
-
-# Switch to non-root user
-USER mcpuser
-
-# npm/npxがこれらのディレクトリを使用するように環境変数を設定
-ENV NPM_CONFIG_CACHE=/app/.npm-cache
-# XDG_CONFIG_HOMEは、npxが内部で利用する設定ファイルのパスのヒントになることがあります
-ENV XDG_CONFIG_HOME=/app/.npm-config
+# Note: Running as root to access Docker socket
+# USER mcpuser
 
 # Expose port
 EXPOSE 3000
 
 # Set environment variables with defaults
-# ENV MCP_CONFIG_FILE=mcp_servers.config.json
-# ENV MCP_SERVER_NAME=brave-search
-# ENV RUST_LOG=info
+ENV MCP_CONFIG_FILE=mcp_servers.config.json
+ENV MCP_SERVER_NAME=github
+ENV RUST_LOG=info
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
