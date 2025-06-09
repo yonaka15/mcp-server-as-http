@@ -110,6 +110,14 @@ curl -X POST http://localhost:3000/api/v1 \
   -d '{"command": "your-mcp-command"}'
 ```
 
+Example for `tools/list`:
+```bash
+ curl -X POST http://localhost:3000/api/v1 \
+  -H "Authorization: Bearer your-secret-api-key-here" \
+  -H "Content-Type: application/json" \
+  -d '{"command": "{\"jsonrpc\": \"2.0\", \"id\": 1, \"method\": \"tools/list\", \"params\": {}}"}'
+```
+
 ### Without Authentication
 
 Set `DISABLE_AUTH=true` in your `.env` file:
