@@ -30,7 +30,7 @@ COPY src ./src
 RUN cargo build --release
 
 # Stage 2: Runtime stage
-FROM node:18-slim
+FROM node:20-slim
 
 # Install only runtime dependencies
 RUN apt-get update && apt-get install -y \
@@ -38,11 +38,18 @@ RUN apt-get update && apt-get install -y \
   curl \
   && rm -rf /var/lib/apt/lists/*
 
+# Install MCP Filesystem Server globally before switching users
+RUN npm install -g @modelcontextprotocol/server-filesystem
+
 # Create non-root user for security
 RUN groupadd -r mcpuser && useradd -r -g mcpuser mcpuser
 
 # Set working directory
 WORKDIR /app
+
+# Create workspace directory and set permissions
+RUN mkdir -p /workspace && \
+    chown -R mcpuser:mcpuser /workspace
 
 # Copy the binary from builder stage
 COPY --from=builder /app/target/release/mcp-http-server .
@@ -51,22 +58,11 @@ COPY --from=builder /app/target/release/mcp-http-server .
 COPY mcp_servers.config.json .
 COPY .env.example .env
 
-# npm/npxが使用するキャッシュディレクトリと設定ディレクトリを/app配下に作成
-# これらのディレクトリの所有権をmcpuserに変更
-RUN mkdir -p /app/.npm-cache /app/.npm-config && \
-  chown -R mcpuser:mcpuser /app/.npm-cache /app/.npm-config
-
-# アプリケーションの他のファイルもmcpuser所有にする
-# (この行は既に存在しますが、新しいディレクトリ作成後に効果があるように配置を確認)
+# Set ownership of app directory
 RUN chown -R mcpuser:mcpuser /app
 
 # Switch to non-root user
 USER mcpuser
-
-# npm/npxがこれらのディレクトリを使用するように環境変数を設定
-ENV NPM_CONFIG_CACHE=/app/.npm-cache
-# XDG_CONFIG_HOMEは、npxが内部で利用する設定ファイルのパスのヒントになることがあります
-ENV XDG_CONFIG_HOME=/app/.npm-config
 
 # Expose port
 EXPOSE 3000

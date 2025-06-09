@@ -62,16 +62,38 @@ impl McpServerProcess {
         let mcp_message = &request.command;
         println!("[DEBUG] Sending to MCP server: {}", mcp_message);
 
-        // MCPサーバーに送信
-        self.stdin
+        // MCPサーバーに送信（Broken pipeエラー対策）
+        match self.stdin
             .write_all((mcp_message.to_string() + "\n").as_bytes())
-            .await
-            .map_err(|e| format!("Failed to write to MCP stdin: {}", e))?;
+            .await {
+            Ok(_) => {
+                println!("[DEBUG] Successfully wrote to MCP stdin");
+            }
+            Err(e) => {
+                let error_kind = e.kind();
+                println!("[DEBUG] Write error kind: {:?}", error_kind);
+                
+                // Broken pipeの場合は特別なハンドリング
+                if error_kind == std::io::ErrorKind::BrokenPipe {
+                    return Err("MCP server process has terminated (broken pipe). Server may need to be restarted.".to_string());
+                }
+                
+                return Err(format!("Failed to write to MCP stdin: {} (kind: {:?})", e, error_kind));
+            }
+        }
 
-        self.stdin
-            .flush()
-            .await
-            .map_err(|e| format!("Failed to flush MCP stdin: {}", e))?;
+        match self.stdin.flush().await {
+            Ok(_) => {
+                println!("[DEBUG] Successfully flushed MCP stdin");
+            }
+            Err(e) => {
+                let error_kind = e.kind();
+                if error_kind == std::io::ErrorKind::BrokenPipe {
+                    return Err("MCP server process has terminated during flush (broken pipe).".to_string());
+                }
+                return Err(format!("Failed to flush MCP stdin: {} (kind: {:?})", e, error_kind));
+            }
+        }
 
         println!("[DEBUG] Data sent to MCP server, waiting for response...");
 
@@ -370,7 +392,7 @@ async fn main() {
     let config_file =
         env::var("MCP_CONFIG_FILE").unwrap_or_else(|_| "mcp_servers.config.json".to_string());
     let mcp_server_key_to_use =
-        env::var("MCP_SERVER_NAME").unwrap_or_else(|_| "brave-search".to_string());
+        env::var("MCP_SERVER_NAME").unwrap_or_else(|_| "filesystem".to_string());
 
     println!(
         "[DEBUG] Config file: '{}', Server key: '{}'",
@@ -386,11 +408,11 @@ async fn main() {
             Err(e) => {
                 eprintln!("[FATAL] Failed to start MCP server process: {}", e);
                 eprintln!("Please ensure:");
-                eprintln!("1. Node.js is installed and npx is available");
+                eprintln!("1. Node.js is installed and the filesystem server is available");
                 eprintln!(
-                    "2. The @modelcontextprotocol/server-brave-search package can be downloaded"
+                    "2. The @modelcontextprotocol/server-filesystem package is installed"
                 );
-                eprintln!("3. Network connectivity is available");
+                eprintln!("3. The /workspace directory is accessible");
                 return;
             }
         };
@@ -403,7 +425,7 @@ async fn main() {
         ))
         .with_state(mcp_server_process_mutex);
 
-    // Renderの要件に合わせてホストとポートを設定
+    // ポート設定
     let port = env::var("PORT").unwrap_or_else(|_| "3000".to_string());
     let listener_addr = format!("0.0.0.0:{}", port);
 
@@ -413,9 +435,8 @@ async fn main() {
         Ok(listener) => {
             println!(
                 "[DEBUG] HTTP server listening on http://{}",
-                listener.local_addr().unwrap() // ここでは実際のローカルアドレスを表示
+                listener.local_addr().unwrap()
             );
-            println!("[DEBUG] Render will forward requests to this port from the public internet.");
             println!("[DEBUG] Ready to accept requests at POST /api/v1");
 
             if auth_config.enabled {

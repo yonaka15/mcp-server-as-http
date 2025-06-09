@@ -1,3 +1,24 @@
+## Recent Updates (2025-06-09)
+
+**🔧 Fixed Broken Pipe Error Issues:**
+- Updated MCP server configuration to use direct `node` command instead of `npx`
+- Enhanced error handling for Broken Pipe errors (errno 32)
+- Upgraded to Node.js 20 for better stability
+- Pre-installed MCP Filesystem Server in Docker image
+- Improved Docker filesystem permissions
+
+**📁 Filesystem Server Configuration:**
+```json
+{
+  "filesystem": {
+    "command": "node",
+    "args": ["/usr/local/lib/node_modules/@modelcontextprotocol/server-filesystem/dist/index.js", "/workspace"]
+  }
+}
+```
+
+---
+
 # MCP HTTP Server
 
 A HTTP server that provides a REST API interface to Model Context Protocol (MCP) servers.
