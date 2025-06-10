@@ -31,7 +31,6 @@ The server supports multiple installation patterns:
     "repository": "yonaka15/mcp-server-redmine",
     "language": "node",
     "entrypoint": "dist/index.js",
-    "description": "MCP server for Redmine",
     "install_command": "(npm ci || npm install) && npm run build"
   }
 }
