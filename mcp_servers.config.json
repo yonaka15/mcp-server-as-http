@@ -1,6 +1,10 @@
 {
-  "brave-search": {
-    "command": "npx",
-    "args": ["-y", "@modelcontextprotocol/server-brave-search"]
+  "redmine": {
+    "type": "github",
+    "repository": "yonaka15/mcp-server-redmine",
+    "language": "node",
+    "entrypoint": "dist/index.js",
+    "description": "MCP server for Redmine",
+    "install_command": "(npm ci || npm install) && npm run build"
   }
 }

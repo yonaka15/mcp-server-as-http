@@ -1,213 +1,77 @@
-# MCP HTTP Server
+# MCP HTTP Server - Redmine
 
-A HTTP server that provides a REST API interface to Model Context Protocol (MCP) servers.
+Simple HTTP API for Redmine via Model Context Protocol.
 
-## Features
-
-- **REST API Interface**: Convert MCP protocol to HTTP REST API
-- **Authentication**: Bearer token authentication support
-- **Configuration**: JSON-based MCP server configuration
-- **Docker Support**: Full Docker containerization with multi-stage builds
-- **Health Checks**: Built-in health checking capabilities
-- **Logging**: Comprehensive debug logging
-
-## Quick Start with Docker
-
-### 1. Build and Run (Recommended)
+## Quick Start
 
 ```bash
-# Make the build script executable
-chmod +x docker-build.sh
+# Test
+./test.sh
 
-# Build and start the container
-./docker-build.sh
-
-# Or with custom options
-./docker-build.sh --port 8080 --tag v1.0.0
-```
-
-### 2. Using Docker Compose
-
-```bash
-# Start the service
-docker-compose up -d
-
-# View logs
-docker-compose logs -f
-
-# Stop the service
-docker-compose down
-```
-
-### 3. Manual Docker Commands
-
-```bash
-# Build the image
+# Or manually
 docker build -t mcp-http-server .
-
-# Run the container
-docker run -d \
-  --name mcp-http-server \
-  -p 3000:3000 \
-  --env-file .env \
-  mcp-http-server
+docker run -d --name mcp-http-server -p 1582:3000 --env-file .env mcp-http-server
 ```
 
 ## Configuration
 
-### Environment Variables
+### Install Command Options
 
-Create a `.env` file (copy from `.env.example`):
+The server supports multiple installation patterns:
 
-```bash
-# HTTP Server Authentication
-HTTP_API_KEY=your-secret-api-key-here
-DISABLE_AUTH=false
+1. **Recommended (with package-lock.json)**: `(npm ci || npm install) && npm run build`
+2. **Alternative**: `npm install && npm run build`
+3. **Development**: `npm run build` (if dependencies already installed)
 
-# MCP Server Configuration
-MCP_CONFIG_FILE=mcp_servers.config.json
-MCP_SERVER_KEY=brave-search
-```
-
-### MCP Server Configuration
-
-Edit `mcp_servers.config.json` to configure MCP servers:
-
+**`mcp_servers.config.json`**:
 ```json
 {
-  "brave-search": {
-    "command": "npx",
-    "args": ["-y", "@modelcontextprotocol/server-brave-search"]
+  "redmine": {
+    "type": "github",
+    "repository": "yonaka15/mcp-server-redmine",
+    "language": "node",
+    "entrypoint": "dist/index.js",
+    "description": "MCP server for Redmine",
+    "install_command": "(npm ci || npm install) && npm run build"
   }
 }
 ```
 
-## API Usage
+**Environment** (`.env`):
+```bash
+PORT=1582
+DISABLE_AUTH=true
+MCP_SERVER_NAME=redmine
+HTTP_API_KEY=your-secret-key
 
-### Authentication
+# Redmine Configuration
+REDMINE_HOST=https://your-redmine.example.com
+REDMINE_API_KEY=your-redmine-api-key-here
+```
 
-Include Bearer token in Authorization header:
+## Usage
 
 ```bash
-curl -X POST http://localhost:3000/api/v1 \
-  -H "Authorization: Bearer your-secret-api-key-here" \
+curl -X POST http://localhost:1582/api/v1 \
   -H "Content-Type: application/json" \
-  -d '{"command": "your-mcp-command"}'
-```
-
-Example for `tools/list`:
-```bash
- curl -X POST http://localhost:3000/api/v1 \
-  -H "Authorization: Bearer your-secret-api-key-here" \
-  -H "Content-Type: application/json" \
-  -d '{"command": "{\"jsonrpc\": \"2.0\", \"id\": 1, \"method\": \"tools/list\", \"params\": {}}"}'
-```
-
-### Without Authentication
-
-Set `DISABLE_AUTH=true` in your `.env` file:
-
-```bash
-curl -X POST http://localhost:3000/api/v1 \
-  -H "Content-Type: application/json" \
-  -d '{"command": "your-mcp-command"}'
-```
-
-## Development
-
-### Local Development
-
-```bash
-# Install Rust (if not already installed)
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-
-# Install Node.js dependencies globally (for MCP servers)
-npm install -g @modelcontextprotocol/server-brave-search
-
-# Build and run
-cargo build --release
-./target/release/mcp-http-server
-```
-
-### Docker Development
-
-```bash
-# Build only (no run)
-./docker-build.sh --build-only
-
-# Build without cache
-./docker-build.sh --no-cache
-
-# Custom port
-./docker-build.sh --port 8080
+  -d '{
+    "command": "{
+      \"jsonrpc\": \"2.0\", 
+      \"id\": 1, 
+      \"method\": \"tools/call\", 
+      \"params\": {
+        \"name\": \"search_issues\",
+        \"arguments\": {\"project_id\": \"1\", \"limit\": 10}
+      }
+    }"
+  }'
 ```
 
 ## Architecture
 
-### Multi-stage Docker Build
+1. **Rust HTTP Server** - Handles REST API
+2. **MCP Protocol** - Communicates with tools
+3. **Redmine Server** - Manages issues and projects
+4. **Auto Setup** - Clones and installs from GitHub
 
-- **Stage 1 (Builder)**: Rust + Node.js environment for building
-- **Stage 2 (Runtime)**: Minimal Node.js runtime with compiled binary
-
-### Security Features
-
-- Non-root user execution
-- Minimal runtime dependencies
-- Optional Bearer token authentication
-- Health check endpoints
-
-### Dependencies
-
-- **Runtime**: Node.js (for npx and MCP servers)
-- **Build**: Rust toolchain
-- **MCP Servers**: Various npm packages (installed dynamically)
-
-## Monitoring
-
-### Health Check
-
-```bash
-# Check container health
-docker ps
-
-# Manual health check
-curl -f http://localhost:3000/api/v1 \
-  -X POST \
-  -H "Content-Type: application/json" \
-  -d '{"command":"test"}'
-```
-
-### Logs
-
-```bash
-# Docker logs
-docker logs -f mcp-http-server
-
-# Docker Compose logs
-docker-compose logs -f
-```
-
-## Troubleshooting
-
-### Common Issues
-
-1. **Node.js/npx not found**: Ensure Node.js is installed in the container
-2. **MCP server startup failure**: Check network connectivity for npm package downloads
-3. **Permission denied**: Verify file permissions and user configuration
-4. **Port conflicts**: Change the port mapping in Docker commands
-
-### Debug Mode
-
-Enable debug logging:
-
-```bash
-# Set environment variable
-export RUST_LOG=debug
-
-# Or in .env file
-RUST_LOG=debug
-```
-
-## License
-
-This project is open source. Please refer to the LICENSE file for details.
+Clean, simple, fast.
